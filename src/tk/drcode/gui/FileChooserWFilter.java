@@ -2,6 +2,7 @@ package tk.drcode.gui;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
+import javax.swing.plaf.FileChooserUI;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -18,7 +19,7 @@ public class FileChooserWFilter extends JFileChooser {
     public FileChooserWFilter() {
         super();
 
-        Object fcUI = searchFileChooserUI(this);
+        FileChooserUI fcUI = searchFileChooserUI(this);
         if (fcUI == null)
             return;
         Field mfield = null;
@@ -39,7 +40,7 @@ public class FileChooserWFilter extends JFileChooser {
 
         try {
             mfield.setAccessible(true);
-            JTextField tfFileName = (JTextField) mfield.get(fcUI);
+            final JTextField tfFileName = (JTextField) mfield.get(fcUI);
             tfFileName.addKeyListener(new KeyListener() {
                 @Override
                 public void keyTyped(KeyEvent e) {
@@ -61,14 +62,13 @@ public class FileChooserWFilter extends JFileChooser {
         }
     }
 
-    static private Object searchFileChooserUI(Container panel) {
+    static private FileChooserUI searchFileChooserUI(Container panel) {
         for (java.awt.Component c : panel.getComponents()) {
-            System.out.println(c.getClass());
 
             if (c instanceof JPanel) {
                 Object fcUI = searchFileChooserUI((JPanel) c);
                 if (fcUI != null)
-                    return fcUI;
+                    return (FileChooserUI) fcUI;
             } else if ((c.getClass().getName().startsWith("javax.swing.plaf.metal.MetalFileChooserUI$")
                     || c.getClass().getName().startsWith("com.sun.java.swing.plaf.windows.WindowsFileChooserUI$"))
                     && c.getClass().getDeclaringClass() == null) {
@@ -77,7 +77,7 @@ public class FileChooserWFilter extends JFileChooser {
                             || field.getType().getName().equals("javax.swing.plaf.metal.MetalFileChooserUI")) {
                         field.setAccessible(true);
                         try {
-                            return field.get(c);
+                            return (FileChooserUI) field.get(c);
                         } catch (IllegalAccessException e) {
                             e.printStackTrace();
                             return null;
