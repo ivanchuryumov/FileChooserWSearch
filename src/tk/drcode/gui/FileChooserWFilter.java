@@ -2,6 +2,7 @@ package tk.drcode.gui;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.File;
@@ -16,15 +17,29 @@ public class FileChooserWFilter extends JFileChooser {
 
     public FileChooserWFilter() {
         super();
-        JPanel panel1 = (JPanel) this.getComponent(3);
-        JPanel panel3 = (JPanel) panel1.getComponent(0);
-        Field field = panel3.getComponent(1).getClass().getDeclaredFields()[0];
-        field.setAccessible(true);
+
+        Object fcUI = searchFileChooserUI(this);
+        if (fcUI == null)
+            return;
+        Field mfield = null;
         try {
-            javax.swing.plaf.metal.MetalFileChooserUI mfcUI = (javax.swing.plaf.metal.MetalFileChooserUI) field.get(panel3.getComponent(1));
-            Field mfield = mfcUI.getClass().getDeclaredField("fileNameTextField");
+            mfield = fcUI.getClass().getDeclaredField("fileNameTextField");
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        }
+
+        if (mfield == null) {
+            try {
+                mfield = fcUI.getClass().getDeclaredField("filenameTextField");
+            } catch (NoSuchFieldException e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        try {
             mfield.setAccessible(true);
-            JTextField tfFileName = (JTextField) mfield.get(mfcUI);
+            JTextField tfFileName = (JTextField) mfield.get(fcUI);
             tfFileName.addKeyListener(new KeyListener() {
                 @Override
                 public void keyTyped(KeyEvent e) {
@@ -41,9 +56,37 @@ public class FileChooserWFilter extends JFileChooser {
                         FileChooserWFilter.this.setFileFilter(makeFileFilter(((FileFilterFJWF) ff).getExtension(), ff.getDescription(), tfFileName.getText()));
                 }
             });
-        } catch (IllegalAccessException | NoSuchFieldException e) {
+        } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    static private Object searchFileChooserUI(Container panel) {
+        for (java.awt.Component c : panel.getComponents()) {
+            System.out.println(c.getClass());
+
+            if (c instanceof JPanel) {
+                Object fcUI = searchFileChooserUI((JPanel) c);
+                if (fcUI != null)
+                    return fcUI;
+            } else if ((c.getClass().getName().startsWith("javax.swing.plaf.metal.MetalFileChooserUI$")
+                    || c.getClass().getName().startsWith("com.sun.java.swing.plaf.windows.WindowsFileChooserUI$"))
+                    && c.getClass().getDeclaringClass() == null) {
+                for (Field field : c.getClass().getDeclaredFields()) {
+                    if (field.getType().getName().equals("com.sun.java.swing.plaf.windows.WindowsFileChooserUI")
+                            || field.getType().getName().equals("javax.swing.plaf.metal.MetalFileChooserUI")) {
+                        field.setAccessible(true);
+                        try {
+                            return field.get(c);
+                        } catch (IllegalAccessException e) {
+                            e.printStackTrace();
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
